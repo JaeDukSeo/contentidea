@@ -39,10 +39,6 @@ const logException = (description = '', fatal = false) => {
   }
 }
 
-
-
-
-
 export default class Home extends React.Component {
 
   constructor(props) {

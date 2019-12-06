@@ -8,6 +8,9 @@ const next = require("next");
 const express = require('express')
 const session = require("express-session");
 const MemoryStore = require('memorystore')(session)
+var firebase = require("firebase/app");
+require("firebase/auth");
+require('firebase/database');
 
 // Configuration 
 const port = parseInt(process.env.PORT, 10) || 3000;
@@ -21,6 +24,20 @@ const uid = require('uid-safe');
 // Next
 const app = next({ dev, dir: "./frontend" });
 const handle = app.getRequestHandler();
+
+// Replace the following with your app's Firebase project configuration
+const firebaseConfig = {
+    apiKey: process.env.fb_apiKey,
+    authDomain: process.env.fb_authDomain,
+    databaseURL: process.env.fb_databaseURL,
+    projectId: process.env.fb_projectId,
+    storageBucket: process.env.fb_storageBucket,
+    messagingSenderId: process.env.fb_messagingSenderId,
+    appId: process.env.fb_appId,
+    measurementId: process.env.fb_measurementId
+};
+firebase.initializeApp(firebaseConfig);
+var database = firebase.database();
 
 // Custome API
 const googleTrends = require("./apis");

@@ -7,8 +7,9 @@ const Footer = () => (
             <div className="copyright text-center my-auto">
                 <span>Copyright &copy; ContendIdeas 2019</span>
                 <br />
-                Icons made by
-                <a href="https://www.flaticon.com/authors/smashicons" title="Smashicons">Smashicons</a> 
+                <br />
+                Icons made by &nbsp;
+                <a href="https://www.flaticon.com/authors/smashicons" title="Smashicons">Smashicons</a>&nbsp;
                 from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a>
             </div>
         </div>

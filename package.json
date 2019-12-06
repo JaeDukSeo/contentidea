@@ -27,6 +27,7 @@
     "koa": "^2.11.0",
     "koa-session": "^5.12.3",
     "memorystore": "^1.6.1",
+    "mongoose": "^5.7.13",
     "next": "^9.1.4",
     "node-nlp": "^4.0.0-rc.4",
     "passport": "^0.4.0",
