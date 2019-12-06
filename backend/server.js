@@ -7,6 +7,7 @@ const http = require("http");
 const next = require("next");
 const express = require('express')
 const session = require("express-session");
+const MemoryStore = require('memorystore')(session)
 
 // Configuration 
 const port = parseInt(process.env.PORT, 10) || 3000;
@@ -29,14 +30,20 @@ const authRoutes = require("./auth-routes");
 app.prepare().then(() => {
 
     const server = express();
+
     const sessionConfig = {
         secret: uid.sync(18),
         cookie: {
-            maxAge: 86400 * 1000 // 24 hours in milliseconds
+            secure: true,
+            maxAge: 60 * 60 * 20 * 1000 // 20 hours in milliseconds
         },
+        store: new MemoryStore({
+            checkPeriod: 60 * 60 * 20 * 1000 // 20 hours in milliseconds
+        }),
         resave: false,
-        saveUninitialized: true
-    };
+        saveUninitialized: true,
+    }
+
     server.use(session(sessionConfig));
     const auth0Strategy = new Auth0Strategy(
         {
