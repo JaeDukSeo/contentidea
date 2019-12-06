@@ -23,7 +23,7 @@ const app = next({ dev, dir: "./frontend" });
 const handle = app.getRequestHandler();
 
 // Custome API
-const googleTrends = require("./google_trends");
+const googleTrends = require("./apis");
 const authRoutes = require("./auth-routes");
 
 // Run the Server
