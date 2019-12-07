@@ -5,12 +5,25 @@ const router = express.Router();
 
 // apis 
 const googleTrends = require('google-trends-api');
-const { ExploreTrendRequest,SearchProviders } = require('g-trends')
+const { ExploreTrendRequest, SearchProviders } = require('g-trends')
 const explorer = new ExploreTrendRequest()
+const nodemailer = require('nodemailer');
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.SITE_EMAIL,
+        pass: process.env.SITE_EMAIL_PASS
+    }
+})
 
+// 
+// 
+// 
 router.use(bodyParser.json());
-
 router.get("/api/daily", (req, res) => {
+
+    var daily = [];
+    var daily_num = []
 
     googleTrends.dailyTrends({
         trendDate: new Date(),
@@ -21,19 +34,16 @@ router.get("/api/daily", (req, res) => {
             res.send(err);
         } else {
             const results_json = JSON.parse(results).default
-
             var daily = [];
             results_json.trendingSearchesDays.forEach(function (trendingSearchesDays) {
                 trendingSearchesDays.trendingSearches.forEach(function (trendingSearches) {
-                    daily.push(trendingSearches.title.query)
+                    daily.push([trendingSearches.title.query, trendingSearches.formattedTraffic])
                 })
             });
-            const onlysearch = results_json.trendingSearchesDays
-
-            res.json({ daily })
+            
+            res.json({daily})
         }
-    });
-
+    })
 });
 
 router.get("/api/realtime", (req, res) => {
@@ -60,39 +70,23 @@ router.get("/api/realtime", (req, res) => {
 
 });
 
-router.get("/api/daily/graph", (req, res) => {
+router.get("/api/getnumbers/:keyword", (req, res) => {
+    let keyword = req.params.keyword
+    googleTrends.interestOverTime({ keyword: keyword })
+        .then(function (results) {
+            var JSON_results = JSON.parse(results).default.timelineData
 
-    explorer.addKeyword('Dream about snakes')
-    .compare('Dream about falling')
-    .download().then( csv => {
-        console.log('[✔] Done, take a look at your beautiful CSV formatted data!')
-        console.log(csv)
-    }).catch( error => {
-        console.log('[!] Failed fetching csv data due to an error',error)
-    })
-
-    googleTrends.dailyTrends({
-        trendDate: new Date(),
-        geo: 'US',
-    }, function (err, results) {
-        if (err) {
-            console.error('Oh no there was an error', err);
-            res.send(err);
-        } else {
-            const results_json = JSON.parse(results).default
-
-            var daily = [];
-            results_json.trendingSearchesDays.forEach(function (trendingSearchesDays) {
-                trendingSearchesDays.trendingSearches.forEach(function (trendingSearches) {
-                    daily.push(trendingSearches.title.query)
-                })
+            var time_and_number = {}
+            Object.keys(JSON_results).map(function (key, index) {
+                time_and_number[JSON_results[key].time] = JSON_results[key].formattedValue[0].match(/\d/g).join("")
             });
-            const onlysearch = results_json.trendingSearchesDays
 
-            res.json({ daily })
-        }
-    });
-
+            res.json({ time_and_number })
+        })
+        .catch(function (err) {
+            console.error(err);
+            throw new Error(err)
+        });
 });
 
 

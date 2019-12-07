@@ -3,7 +3,6 @@ import React from 'react'
 import ReactGA from 'react-ga';
 
 // Next components
-import Head from 'next/head'
 import Main from 'next/document'
 import Link from 'next/link'
 
@@ -12,9 +11,12 @@ import Sidebar from "../components/Sidebar"
 import Nav from "../components/Nav"
 import Footer from "../components/Footer"
 import Scripts from '../components/Scripts'
+import Header from '../components/Header'
+
 
 // library
 import fetch from "isomorphic-unfetch";
+import { Line } from 'react-chartjs-2';
 
 const initGA = () => {
   console.log('GA init')
@@ -45,12 +47,14 @@ export default class Home extends React.Component {
     super(props)
     this.state = {
       daily: props.daily,
-      dailyUpdated: Date(),
+      dailyUpdated: this.convert_date(new Date()),
       realtime: props.realtime,
-      realtimeUpdated: Date()
+      realtimeUpdated: this.convert_date(new Date()),
+      testing_graph_name: ''
     }
-
     this.loadDaily_Realtime_Data = this.loadDaily_Realtime_Data.bind(this)
+    this.convert_date = this.convert_date.bind(this)
+    this.timeConverter = this.timeConverter.bind(this)
   }
 
   componentDidMount() {
@@ -59,18 +63,73 @@ export default class Home extends React.Component {
       window.GA_INITIALIZED = true
     }
     logPageView()
-    setInterval(this.loadDaily_Realtime_Data, 3000);
+    setInterval(this.loadDaily_Realtime_Data, 5000);
   }
-
+  convert_date(date) {
+    var hours = date.getHours();
+    var minutes = date.getMinutes();
+    var sec = date.getSeconds();
+    var ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    var strTime = hours + ':' + minutes + ':' + sec + ' ' + ampm;
+    return strTime;
+  }
+  timeConverter(UNIX_timestamp) {
+    var a = new Date(UNIX_timestamp * 1000);
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var year = a.getFullYear();
+    var month = months[a.getMonth()];
+    var date = a.getDate();
+    var hour = a.getHours();
+    var min = a.getMinutes();
+    var sec = a.getSeconds();
+    var time = date + ' ' + month + ' ' + year ;
+    return time;
+  }
   async loadDaily_Realtime_Data() {
     try {
-      const res_daily = await fetch(`/api/daily`);
-      const res_realtime = await fetch(`/api/realtime`);
+      const res_daily = await (await fetch(`/api/daily`)).json();
+      const res_realtime = await (await fetch(`/api/realtime`)).json();
+
+      // 
+      const rand = res_daily.daily[Math.floor(Math.random() * res_daily.daily.length)];
+      const testing_graph = (await (await fetch(`/api/getnumbers/` + rand[0])).json()).time_and_number;
+      var data = {
+        labels: Object.keys(testing_graph).map(e => this.timeConverter(e)),
+        datasets: [
+          {
+            label: rand[0],
+            fill: false,
+            lineTension: 0.1,
+            backgroundColor: 'rgba(75,192,192,0.4)',
+            borderColor: 'rgba(75,192,192,1)',
+            borderCapStyle: 'butt',
+            borderDash: [],
+            borderDashOffset: 0.0,
+            borderJoinStyle: 'miter',
+            pointBorderColor: 'rgba(75,192,192,1)',
+            pointBackgroundColor: '#fff',
+            pointBorderWidth: 1,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: 'rgba(75,192,192,1)',
+            pointHoverBorderColor: 'rgba(220,220,220,1)',
+            pointHoverBorderWidth: 2,
+            pointRadius: 1,
+            pointHitRadius: 10,
+            data: Object.values(testing_graph)
+          }
+        ]
+      }
+
       this.setState({
-        daily: await res_daily.json(),
-        dailyUpdated: Date(),
-        realtime: await res_realtime.json(),
-        realtimeUpdated: Date()
+        daily: res_daily,
+        dailyUpdated: this.convert_date(new Date()),
+        realtime: res_realtime,
+        realtimeUpdated: this.convert_date(new Date()),
+        testing_graph_name: rand[0],
+        testing_graph: data
       })
     } catch (e) {
       console.error(e);
@@ -78,26 +137,9 @@ export default class Home extends React.Component {
   }
 
   render() {
-
     return (
       <div>
-
-        <Head>
-          {/* Title and meta */}
-          <title>Content Ideas - Ideas</title>
-          <meta charSet="utf-8"></meta>
-          <meta httpEquiv="X-UA-Compatible" content="IE=edge"></meta>
-          <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"></meta>
-
-          <meta name="description" content="Wondering what kind of content to make on YouTube? Instagram? spotify? or any platform? This website is for you! 
-          See what kind of ideas are trending now, helping you go virial!"></meta>
-          <meta name="author" content=""></meta>
-
-          <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css"></link>
-          <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet"></link>
-          <link href="css/sb-admin-2.min.css" rel="stylesheet"></link>
-          <link rel="shortcut icon" type="image/png" href="idea.png" />
-        </Head>
+        <Header />
 
         <div id="page-top">
           <div id="wrapper">
@@ -107,12 +149,33 @@ export default class Home extends React.Component {
               <div id="content">
                 <Nav />
                 <div className="container-fluid">
+
                   <div className="d-sm-flex align-items-center justify-content-between mb-4">
                     <h1 className="h3 mb-0 text-gray-800">Dashboard</h1>
                     <a href="#" className="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i className="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
                   </div>
 
-                  {/*  */}
+                  <div className="row">
+                    <div className="col-lg-6">
+                      <div className="card shadow mb-4">
+                        <a href="#collapseCardExample3" className="d-block card-header py-3" data-toggle="collapse" role="button" aria-expanded="true" aria-controls="collapseCardExample3">
+                          <h6 className="m-0 font-weight-bold text-primary">
+                            Trend for {this.state.testing_graph_name}
+                            <p className="text-xs">Last Updated: {this.state.dailyUpdated} </p>
+                          </h6>
+                        </a>
+                        <div className="collapse show" id="collapseCardExample3">
+                          <div className="card-body">
+                            {
+                              this.state.testing_graph &&
+                              <Line data={this.state.testing_graph} />
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="row">
 
                     <div className="col-lg-6">
@@ -126,7 +189,7 @@ export default class Home extends React.Component {
                             <ul className="list-group">
                               {this.state.daily.daily.map(function (data) {
                                 return (
-                                  <li className="list-group-item" key={data}>{data} <span className="badge"></span></li>
+                                  <li className="list-group-item" key={data[0]}>{data[0]} <span className="badge">{data[1]}</span></li>
                                 )
                               })}
                             </ul>
@@ -158,8 +221,6 @@ export default class Home extends React.Component {
                     </div>
 
                   </div>
-                  {/*  */}
-
 
                 </div>
               </div>
@@ -177,10 +238,11 @@ export default class Home extends React.Component {
 
 Home.getInitialProps = async ({ req }) => {
   const baseURL = req ? `${req.protocol}://${req.get("Host")}` : "";
-  const res_daily = await fetch(`${baseURL}/api/daily`);
-  const res_realtime = await fetch(`${baseURL}/api/realtime`);
+  const res_daily = await (await fetch(`${baseURL}/api/daily`)).json();
+  const res_realtime = await (await fetch(`${baseURL}/api/realtime`)).json();
   return {
-    daily: await res_daily.json(),
-    realtime: await res_realtime.json(),
+    daily: res_daily,
+    realtime: res_realtime,
   };
+
 };
