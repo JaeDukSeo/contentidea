@@ -64,7 +64,7 @@ export default class Home extends React.Component {
 
       // Add a single hidden layer
       model.add(tf.layers.dense({ inputShape: [1], units: 3, useBias: true ,activation: 'relu'}));
-      model.add(tf.layers.dense({units: 3, useBias: true ,activation: 'relu'}));
+      model.add(tf.layers.dense({units: 2, useBias: true ,activation: 'relu'}));
       model.add(tf.layers.dense({units: 1, useBias: true }));
 
       // Prepare the model for training.  
@@ -95,7 +95,7 @@ export default class Home extends React.Component {
       window.GA_INITIALIZED = true
     }
     logPageView()
-    setInterval(this.loadDaily_Realtime_Data, 8000);
+    setInterval(this.loadDaily_Realtime_Data, 10000);
   }
   convert_date(date) {
     var hours = date.getHours();
@@ -158,8 +158,8 @@ export default class Home extends React.Component {
 
       // Train the model  
       async function trainModel(model, inputs, labels) {
-        const batchSize = 64;
-        const epochs = 25;
+        const batchSize = 16;
+        const epochs = 50;
         return await model.fit(inputs, labels, {
           batchSize,
           epochs,
