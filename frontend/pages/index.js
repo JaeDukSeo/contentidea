@@ -158,8 +158,8 @@ export default class Home extends React.Component {
 
       // Train the model  
       async function trainModel(model, inputs, labels) {
-        const batchSize = 32;
-        const epochs = 50;
+        const batchSize = 64;
+        const epochs = 25;
         return await model.fit(inputs, labels, {
           batchSize,
           epochs,
