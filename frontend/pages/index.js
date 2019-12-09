@@ -13,7 +13,6 @@ import Footer from "../components/Footer"
 import Scripts from '../components/Scripts'
 import Header from '../components/Header'
 
-
 // library
 import fetch from "isomorphic-unfetch";
 import { Line } from 'react-chartjs-2';
@@ -41,6 +40,19 @@ const logException = (description = '', fatal = false) => {
   }
 }
 
+const timeConverter = function (UNIX_timestamp) {
+  var a = new Date(UNIX_timestamp * 1000);
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var year = a.getFullYear();
+  var month = months[a.getMonth()];
+  var date = a.getDate();
+  var hour = a.getHours();
+  var min = a.getMinutes();
+  var sec = a.getSeconds();
+  var time = date + ' ' + month + ' ' + year;
+  return time;
+}
+
 export default class Home extends React.Component {
 
   constructor(props) {
@@ -50,11 +62,11 @@ export default class Home extends React.Component {
       dailyUpdated: this.convert_date(new Date()),
       realtime: props.realtime,
       realtimeUpdated: this.convert_date(new Date()),
-      testing_graph_name: ''
+      testing_graph_name: props.testing_graph_name,
+      testing_graph: props.testing_graph
     }
     this.loadDaily_Realtime_Data = this.loadDaily_Realtime_Data.bind(this)
     this.convert_date = this.convert_date.bind(this)
-    this.timeConverter = this.timeConverter.bind(this)
   }
 
   componentDidMount() {
@@ -76,18 +88,7 @@ export default class Home extends React.Component {
     var strTime = hours + ':' + minutes + ':' + sec + ' ' + ampm;
     return strTime;
   }
-  timeConverter(UNIX_timestamp) {
-    var a = new Date(UNIX_timestamp * 1000);
-    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    var year = a.getFullYear();
-    var month = months[a.getMonth()];
-    var date = a.getDate();
-    var hour = a.getHours();
-    var min = a.getMinutes();
-    var sec = a.getSeconds();
-    var time = date + ' ' + month + ' ' + year ;
-    return time;
-  }
+
   async loadDaily_Realtime_Data() {
     try {
       const res_daily = await (await fetch(`/api/daily`)).json();
@@ -97,7 +98,7 @@ export default class Home extends React.Component {
       const rand = res_daily.daily[Math.floor(Math.random() * res_daily.daily.length)];
       const testing_graph = (await (await fetch(`/api/getnumbers/` + rand[0])).json()).time_and_number;
       var data = {
-        labels: Object.keys(testing_graph).map(e => this.timeConverter(e)),
+        labels: Object.keys(testing_graph).map(e => timeConverter(e)),
         datasets: [
           {
             label: rand[0],
@@ -240,9 +241,40 @@ Home.getInitialProps = async ({ req }) => {
   const baseURL = req ? `${req.protocol}://${req.get("Host")}` : "";
   const res_daily = await (await fetch(`${baseURL}/api/daily`)).json();
   const res_realtime = await (await fetch(`${baseURL}/api/realtime`)).json();
+  const rand = res_daily.daily[Math.floor(Math.random() * res_daily.daily.length)];
+  const testing_graph = (await (await fetch(`${baseURL}/api/getnumbers/` + rand[0])).json()).time_and_number;
+
+  var data = {
+    labels: Object.keys(testing_graph).map(e => timeConverter(e)),
+    datasets: [
+      {
+        label: rand[0],
+        fill: false,
+        lineTension: 0.1,
+        backgroundColor: 'rgba(75,192,192,0.4)',
+        borderColor: 'rgba(75,192,192,1)',
+        borderCapStyle: 'butt',
+        borderDash: [],
+        borderDashOffset: 0.0,
+        borderJoinStyle: 'miter',
+        pointBorderColor: 'rgba(75,192,192,1)',
+        pointBackgroundColor: '#fff',
+        pointBorderWidth: 1,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: 'rgba(75,192,192,1)',
+        pointHoverBorderColor: 'rgba(220,220,220,1)',
+        pointHoverBorderWidth: 2,
+        pointRadius: 1,
+        pointHitRadius: 10,
+        data: Object.values(testing_graph)
+      }
+    ]
+  }
   return {
     daily: res_daily,
     realtime: res_realtime,
+    testing_graph_name: rand,
+    testing_graph: data
   };
 
 };
