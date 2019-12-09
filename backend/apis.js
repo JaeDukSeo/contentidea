@@ -78,7 +78,7 @@ router.get("/api/getnumbers/:keyword", (req, res) => {
 
             var time_and_number = {}
             Object.keys(JSON_results).map(function (key, index) {
-                time_and_number[JSON_results[key].time] = JSON_results[key].formattedValue[0].match(/\d/g).join("")
+                time_and_number[JSON_results[key].time] = parseFloat(JSON_results[key].formattedValue[0].match(/\d/g).join(""))
             });
 
             res.json({ time_and_number })
