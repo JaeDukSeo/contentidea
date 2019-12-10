@@ -63,16 +63,11 @@ export default class Home extends React.Component {
       const model = tf.sequential();
 
       // Add a single hidden layer
-      model.add(tf.layers.dense({ inputShape: [1], units: 3, useBias: true ,activation: 'relu'}));
-      model.add(tf.layers.dense({units: 2, useBias: true ,activation: 'relu'}));
-      model.add(tf.layers.dense({units: 1, useBias: true }));
+      model.add(tf.layers.dense({ inputShape: [1], units: 3, useBias: true, activation: 'relu' }));
+      model.add(tf.layers.dense({ units: 2, useBias: true, activation: 'relu' }));
+      model.add(tf.layers.dense({ units: 1, useBias: true }));
 
-      // Prepare the model for training.  
-      model.compile({
-        optimizer: tf.train.adam(),
-        loss: tf.losses.absoluteDifference,
-        metrics: ['mae'],
-      });
+
       return model;
     }
 
@@ -109,6 +104,75 @@ export default class Home extends React.Component {
     return strTime;
   }
   async loadDaily_Realtime_Data() {
+
+    // Train the model  
+    async function trainModel(model, inputs, labels) {
+      const batchSize = 32;
+      const epochs = 60;
+
+      // Prepare the model for training.  
+      model.compile({
+        optimizer: tf.train.adam(),
+        loss: tf.losses.absoluteDifference,
+        metrics: ['mae'],
+      });
+
+      return await model.fit(inputs, labels, {
+        batchSize,
+        epochs,
+        shuffle: true,
+      });
+    }
+    // Test the model  
+    async function testModel(model, normalizationData) {
+      const { inputs, inputMax, inputMin, labelMin, labelMax } = normalizationData;
+      const [xs, preds] = tf.tidy(() => {
+        const xs = tf.linspace(0, 1, inputs.size);
+        const preds = model.predict(xs.reshape([inputs.size, 1]));
+        const unNormXs = xs.mul(inputMax.sub(inputMin)).add(inputMin);
+        const unNormPreds = preds.mul(labelMax.sub(labelMin)).add(labelMin);
+        return [unNormXs.dataSync(), unNormPreds.dataSync()];
+      });
+
+      // const predictedPoints = Array.from(xs).map((val, i) => { return { x: val, y: preds[i] } });
+      return preds
+    }
+    function convertToTensor(data) {
+      // Wrapping these calculations in a tidy will dispose any 
+      // intermediate tensors.
+
+      return tf.tidy(() => {
+        // Step 1. Shuffle the data    
+        tf.util.shuffle(data);
+
+        // Step 2. Convert data to Tensor
+        const inputs = data.x
+        const labels = data.y
+
+        const inputTensor = tf.tensor2d(inputs, [inputs.length, 1]);
+        const labelTensor = tf.tensor2d(labels, [labels.length, 1]);
+
+        //Step 3. Normalize the data to the range 0 - 1 using min-max scaling
+        const inputMax = inputTensor.max();
+        const inputMin = inputTensor.min();
+        const labelMax = labelTensor.max();
+        const labelMin = labelTensor.min();
+
+        const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
+        const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
+
+        return {
+          inputs: normalizedInputs,
+          labels: normalizedLabels,
+          // Return the min/max bounds so we can use them later.
+          inputMax,
+          inputMin,
+          labelMax,
+          labelMin,
+        }
+      });
+    }
+
     try {
       const res_daily = await (await fetch(`/api/daily`)).json();
       const res_realtime = await (await fetch(`/api/realtime`)).json();
@@ -118,70 +182,11 @@ export default class Home extends React.Component {
 
       // TF 
       var tf_data = { x: [...Array(Object.values(testing_graph).length).keys()], y: Object.values(testing_graph) }
-      function convertToTensor(data) {
-        // Wrapping these calculations in a tidy will dispose any 
-        // intermediate tensors.
-
-        return tf.tidy(() => {
-          // Step 1. Shuffle the data    
-          tf.util.shuffle(data);
-
-          // Step 2. Convert data to Tensor
-          const inputs = data.x
-          const labels = data.y
-
-          const inputTensor = tf.tensor2d(inputs, [inputs.length, 1]);
-          const labelTensor = tf.tensor2d(labels, [labels.length, 1]);
-
-          //Step 3. Normalize the data to the range 0 - 1 using min-max scaling
-          const inputMax = inputTensor.max();
-          const inputMin = inputTensor.min();
-          const labelMax = labelTensor.max();
-          const labelMin = labelTensor.min();
-
-          const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
-          const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
-
-          return {
-            inputs: normalizedInputs,
-            labels: normalizedLabels,
-            // Return the min/max bounds so we can use them later.
-            inputMax,
-            inputMin,
-            labelMax,
-            labelMin,
-          }
-        });
-      }
       const tensorData = convertToTensor(tf_data);
       const { inputs, labels } = tensorData;
 
       // Train the model  
-      async function trainModel(model, inputs, labels) {
-        const batchSize = 16;
-        const epochs = 50;
-        return await model.fit(inputs, labels, {
-          batchSize,
-          epochs,
-          shuffle: true,
-        });
-      }
       await trainModel(this.state.model, inputs, labels);
-
-      // Test the model  
-      async function testModel(model, normalizationData) {
-        const { inputs, inputMax, inputMin, labelMin, labelMax } = normalizationData;
-        const [xs, preds] = tf.tidy(() => {
-          const xs = tf.linspace(0, 1, inputs.size);
-          const preds = model.predict(xs.reshape([inputs.size, 1]));
-          const unNormXs = xs.mul(inputMax.sub(inputMin)).add(inputMin);
-          const unNormPreds = preds.mul(labelMax.sub(labelMin)).add(labelMin);
-          return [unNormXs.dataSync(), unNormPreds.dataSync()];
-        });
-
-        // const predictedPoints = Array.from(xs).map((val, i) => { return { x: val, y: preds[i] } });
-        return preds
-      }
       var predictedPoints = await testModel(this.state.model, tensorData)
 
       var data = {
