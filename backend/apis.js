@@ -40,12 +40,11 @@ router.get("/api/daily", (req, res) => {
                     daily.push([trendingSearches.title.query, trendingSearches.formattedTraffic])
                 })
             });
-            
-            res.json({daily})
+
+            res.json({ daily })
         }
     })
 });
-
 router.get("/api/realtime", (req, res) => {
 
     googleTrends.realTimeTrends({
@@ -69,7 +68,6 @@ router.get("/api/realtime", (req, res) => {
     });
 
 });
-
 router.get("/api/getnumbers/:keyword", (req, res) => {
     let keyword = req.params.keyword
     googleTrends.interestOverTime({ keyword: keyword })
@@ -87,6 +85,17 @@ router.get("/api/getnumbers/:keyword", (req, res) => {
             console.error(err);
             throw new Error(err)
         });
+});
+router.get("/api/getrelated/:keyword", (req, res) => {
+    let keyword = req.params.keyword
+    googleTrends.relatedQueries({ keyword: keyword })
+        .then((results) => {
+            var top_3_list = JSON.parse(results).default.rankedList[0].rankedKeyword.slice(0, 3).map(e => e.query)
+            res.json(top_3_list)
+        })
+        .catch((err) => {
+            console.log(err);
+        })
 });
 
 
