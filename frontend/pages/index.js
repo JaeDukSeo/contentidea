@@ -17,8 +17,10 @@ import Header from '../components/Header'
 import fetch from "isomorphic-unfetch";
 import { Line } from 'react-chartjs-2';
 
-// tfjs
+// tfjs and analytics
 import * as tf from '@tensorflow/tfjs';
+import timeseries from "timeseries-analysis"
+import slayer from "slayer"
 
 const initGA = () => {
   console.log('GA init')
@@ -39,7 +41,6 @@ const logException = (description = '', fatal = false) => {
     ReactGA.exception({ description, fatal })
   }
 }
-
 const timeConverter = function (UNIX_timestamp) {
   var a = new Date(UNIX_timestamp * 1000);
   var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -52,25 +53,19 @@ const timeConverter = function (UNIX_timestamp) {
   var time = date + ' ' + month + ' ' + year;
   return time;
 }
+const createModel = function () {
+  const model = tf.sequential();
+  model.add(tf.layers.dense({ inputShape: [1], units: 3, useBias: true, activation: 'relu' }));
+  model.add(tf.layers.dense({ units: 3, useBias: true, activation: 'relu' }));
+  model.add(tf.layers.dense({ units: 1, useBias: true }));
+  return model;
+}
 
+// Home Component
 export default class Home extends React.Component {
 
   constructor(props) {
     super(props)
-
-    function createModel() {
-      // Create a sequential model
-      const model = tf.sequential();
-
-      // Add a single hidden layer
-      model.add(tf.layers.dense({ inputShape: [1], units: 3, useBias: true, activation: 'relu' }));
-      model.add(tf.layers.dense({ units: 2, useBias: true, activation: 'relu' }));
-      model.add(tf.layers.dense({ units: 1, useBias: true }));
-
-
-      return model;
-    }
-
     this.state = {
       daily: props.daily,
       dailyUpdated: this.convert_date(new Date()),
@@ -80,17 +75,17 @@ export default class Home extends React.Component {
       testing_graph: props.testing_graph,
       model: createModel(),
     }
-
     this.loadDaily_Realtime_Data = this.loadDaily_Realtime_Data.bind(this)
     this.convert_date = this.convert_date.bind(this)
   }
   componentDidMount() {
+    console.log('USE slayer to detect periods!')
     if (!window.GA_INITIALIZED) {
       initGA()
       window.GA_INITIALIZED = true
     }
     logPageView()
-    setInterval(this.loadDaily_Realtime_Data, 10000);
+    setInterval(this.loadDaily_Realtime_Data, 8000);
   }
   convert_date(date) {
     var hours = date.getHours();
@@ -104,10 +99,9 @@ export default class Home extends React.Component {
     return strTime;
   }
   async loadDaily_Realtime_Data() {
-
     // Train the model  
     async function trainModel(model, inputs, labels) {
-      const batchSize = 32;
+      const batchSize = 64;
       const epochs = 60;
 
       // Prepare the model for training.  
@@ -117,11 +111,7 @@ export default class Home extends React.Component {
         metrics: ['mae'],
       });
 
-      return await model.fit(inputs, labels, {
-        batchSize,
-        epochs,
-        shuffle: true,
-      });
+      return await model.fit(inputs, labels, { batchSize, epochs, shuffle: false, });
     }
     // Test the model  
     async function testModel(model, normalizationData) {
@@ -137,6 +127,7 @@ export default class Home extends React.Component {
       // const predictedPoints = Array.from(xs).map((val, i) => { return { x: val, y: preds[i] } });
       return preds
     }
+    // convert to tensor
     function convertToTensor(data) {
       // Wrapping these calculations in a tidy will dispose any 
       // intermediate tensors.
@@ -180,15 +171,21 @@ export default class Home extends React.Component {
       const rand = res_daily.daily[Math.floor(Math.random() * res_daily.daily.length)];
       const testing_graph = (await (await fetch(`/api/getnumbers/` + rand[0])).json()).time_and_number;
 
-      // TF 
+      // TIME SERIES ANALYSIS
+      var period = 30
+      var t = new timeseries.main(timeseries.adapter.fromArray(Object.values(testing_graph)));
+      var moving_average = t.ma({ period: period }).data.map(e => e[1])
+      var linear_moving_average = t.lwma({ period: period }).data.map(e => e[1])
+      var John_Ehlers_iTrend = t.dsp_itrend({ alpha: 0.3 }).data.map(e => e[1])
+
+      // TENSORFLOW
       var tf_data = { x: [...Array(Object.values(testing_graph).length).keys()], y: Object.values(testing_graph) }
       const tensorData = convertToTensor(tf_data);
       const { inputs, labels } = tensorData;
-
-      // Train the model  
       await trainModel(this.state.model, inputs, labels);
       var predictedPoints = await testModel(this.state.model, tensorData)
 
+      // SET THE DATA
       var data = {
         labels: Object.keys(testing_graph).map(e => timeConverter(e)),
         datasets: [
@@ -213,19 +210,35 @@ export default class Home extends React.Component {
             pointHitRadius: 10,
             data: Object.values(testing_graph)
           },
+          // {
+          //   label: rand[0] + ' Prediction',
+          //   fill: true,
+          //   lineTension: 0.1,
+          //   pointHoverBorderWidth: 2,
+          //   pointRadius: 1,
+          //   pointHitRadius: 10,
+          //   data: predictedPoints
+          // },
           {
-            label: rand[0] + ' Prediction',
-            fill: true,
-            lineTension: 0.1,
-            pointHoverBorderWidth: 2,
-            pointRadius: 1,
-            pointHitRadius: 10,
-            data: predictedPoints
+            label: rand[0] + ' MA',
+            backgroundColor: 'red',
+            fill: false,
+            data: moving_average
+          },
+          {
+            label: rand[0] + ' LMA',
+            backgroundColor: 'blue',
+            fill: false,
+            data: linear_moving_average
+          },
+          {
+            label: rand[0] + ' JEI',
+            backgroundColor: 'green',
+            fill: false,
+            data: John_Ehlers_iTrend
           }
         ]
       }
-
-      // 
       this.setState({
         daily: res_daily,
         dailyUpdated: this.convert_date(new Date()),
@@ -239,12 +252,6 @@ export default class Home extends React.Component {
       console.error(e);
     }
   }
-
-
-
-
-
-
 
   render() {
     return (
@@ -365,6 +372,13 @@ Home.getInitialProps = async ({ req }) => {
   const rand = res_daily.daily[Math.floor(Math.random() * res_daily.daily.length)];
   const testing_graph = (await (await fetch(`${baseURL}/api/getnumbers/` + rand[0])).json()).time_and_number;
 
+  // TIME SERIES ANALYSIS
+  const period = 30
+  const t = new timeseries.main(timeseries.adapter.fromArray(Object.values(testing_graph)));
+  const moving_average = t.ma({ period: period }).data.map(e => e[1])
+  const linear_moving_average = t.lwma({ period: period }).data.map(e => e[1])
+  const John_Ehlers_iTrend = t.dsp_itrend({ alpha: 0.3 }).data.map(e => e[1])
+
   var data = {
     labels: Object.keys(testing_graph).map(e => timeConverter(e)),
     datasets: [
@@ -388,6 +402,24 @@ Home.getInitialProps = async ({ req }) => {
         pointRadius: 1,
         pointHitRadius: 10,
         data: Object.values(testing_graph)
+      },
+      {
+        label: rand[0] + ' MA',
+        backgroundColor: 'red',
+        fill: false,
+        data: moving_average
+      },
+      {
+        label: rand[0] + ' LMA',
+        backgroundColor: 'blue',
+        fill: false,
+        data: linear_moving_average
+      },
+      {
+        label: rand[0] + ' JEI',
+        backgroundColor: 'green',
+        fill: false,
+        data: John_Ehlers_iTrend
       }
     ]
   }

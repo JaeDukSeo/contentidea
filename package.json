@@ -42,6 +42,7 @@
     "react-chartjs-2": "^2.8.0",
     "react-dom": "^16.12.0",
     "react-ga": "^2.7.0",
+    "slayer": "^1.0.1",
     "styled-components": "^4.4.1",
     "timeseries-analysis": "^1.0.12",
     "uid-safe": "^2.1.5",
