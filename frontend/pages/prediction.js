@@ -86,7 +86,7 @@ export default class Home extends React.Component {
       window.GA_INITIALIZED = true
     }
     logPageView()
-    // setInterval(this.loadDaily_Realtime_Data, 8000);
+    setInterval(this.loadDaily_Realtime_Data, 8000);
   }
   convert_date(date) {
     var hours = date.getHours();
@@ -172,6 +172,18 @@ export default class Home extends React.Component {
       const rand = res_daily.daily[Math.floor(Math.random() * res_daily.daily.length)];
       const testing_graph = (await (await fetch(`/api/getnumbers/` + rand[0])).json()).time_and_number;
 
+      const related_keywords = (await (await fetch(`/api/getrelated/` + rand[0])).json())
+      const related_keyword_graphs = []
+      var bar = new Promise((resolve, reject) => {
+        related_keywords.forEach(async (e, index, array) => {
+          related_keyword_graphs.push(
+            (await (await fetch(`/api/getnumbers/` + e)).json()).time_and_number
+          )
+          if (index === array.length - 1) resolve();
+        })
+      });
+      await bar;
+
       // TIME SERIES ANALYSIS
       var period = 30
       var t = new timeseries.main(timeseries.adapter.fromArray(Object.values(testing_graph)));
@@ -231,6 +243,30 @@ export default class Home extends React.Component {
           }
         ]
       }
+      var related_data = {
+        labels: Object.keys(testing_graph).map(e => timeConverter(e)),
+        datasets: [
+          {
+            label: related_keywords[0],
+            backgroundColor: 'red',
+            fill: false,
+            data: Object.values(related_keyword_graphs[0])
+          },
+          {
+            label: related_keywords[1],
+            backgroundColor: 'blue',
+            fill: false,
+            data: Object.values(related_keyword_graphs[1])
+          },
+          {
+            label: related_keywords[2],
+            backgroundColor: 'green',
+            fill: false,
+            data: Object.values(related_keyword_graphs[2])
+          },
+
+        ]
+      }
       this.setState({
         daily: res_daily,
         dailyUpdated: this.convert_date(new Date()),
@@ -238,6 +274,7 @@ export default class Home extends React.Component {
         realtimeUpdated: this.convert_date(new Date()),
         testing_graph_name: rand[0],
         testing_graph: data,
+        related_data: related_data,
       })
 
     } catch (e) {
@@ -461,6 +498,12 @@ Home.getInitialProps = async ({ req }) => {
         backgroundColor: 'blue',
         fill: false,
         data: Object.values(related_keyword_graphs[1])
+      },
+      {
+        label: related_keywords[2],
+        backgroundColor: 'green',
+        fill: false,
+        data: Object.values(related_keyword_graphs[2])
       },
     ]
   }
