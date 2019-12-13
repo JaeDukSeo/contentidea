@@ -70,7 +70,9 @@ router.get("/api/realtime", (req, res) => {
 });
 router.get("/api/getnumbers/:keyword", (req, res) => {
     let keyword = req.params.keyword
-    googleTrends.interestOverTime({ keyword: keyword })
+    var oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() -  1);
+    googleTrends.interestOverTime({ keyword: keyword, startTime: oneYearFromNow })
         .then(function (results) {
             var JSON_results = JSON.parse(results).default.timelineData
 

@@ -258,13 +258,6 @@ export default class Home extends React.Component {
             fill: false,
             data: Object.values(related_keyword_graphs[1])
           },
-          {
-            label: related_keywords[2],
-            backgroundColor: 'green',
-            fill: false,
-            data: Object.values(related_keyword_graphs[2])
-          },
-
         ]
       }
       this.setState({
@@ -498,12 +491,6 @@ Home.getInitialProps = async ({ req }) => {
         backgroundColor: 'blue',
         fill: false,
         data: Object.values(related_keyword_graphs[1])
-      },
-      {
-        label: related_keywords[2],
-        backgroundColor: 'green',
-        fill: false,
-        data: Object.values(related_keyword_graphs[2])
       },
     ]
   }
