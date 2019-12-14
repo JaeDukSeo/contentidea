@@ -75,7 +75,8 @@ export default class Home extends React.Component {
       testing_graph: props.testing_graph,
       related_data: props.related_data,
       model: props.model,
-      loss1: props.loss1
+      loss1: props.loss1,
+      loss2: props.loss2
     }
     this.loadDaily_Realtime_Data = this.loadDaily_Realtime_Data.bind(this)
     this.convert_date = this.convert_date.bind(this)
@@ -308,9 +309,8 @@ export default class Home extends React.Component {
                           <h6 className="m-0 font-weight-bold text-primary">
                             Trend for {this.state.testing_graph_name}
                             <p className="text-xs">Last Updated: {this.state.dailyUpdated} </p>
-                            <p className="text-xs">Loss 1: {this.state.loss1} </p>
-
-
+                            <p className="text-xs">Loss MAE: {this.state.loss1} </p>
+                            <p className="text-xs">Loss MSE: {this.state.loss2} </p>
                           </h6>
                         </a>
                         <div className="collapse show" id="collapseCardExample3">
@@ -426,6 +426,20 @@ Home.getInitialProps = async ({ req }) => {
 
     return await model.fit(inputs, labels, { batchSize, epochs, shuffle: false, });
   }
+    // Train the model  2
+    async function trainModel2(model, inputs, labels) {
+      const batchSize = 32;
+      const epochs = 100;
+  
+      // Prepare the model for training.  
+      model.compile({
+        optimizer: tf.train.adam(),
+        loss: tf.losses.meanSquaredError,
+        metrics: ['mse'],
+      });
+  
+      return await model.fit(inputs, labels, { batchSize, epochs, shuffle: false, });
+    }
   // Test the model  
   async function testModel(model, normalizationData) {
     const { inputs, labels, inputMax, inputMin, labelMin, labelMax } = normalizationData;
@@ -501,6 +515,7 @@ Home.getInitialProps = async ({ req }) => {
 
   // TENSORFLOW
   const model1 = createModel()
+  const model2 = createModel()
 
   const full_data = [...Array(Object.values(testing_graph).length).keys()]
   const full_label = Object.values(testing_graph)
@@ -515,6 +530,7 @@ Home.getInitialProps = async ({ req }) => {
   const tensorData = convertToTensor(tf_data);
   const { inputs, labels } = tensorData;
   await trainModel(model1, inputs, labels);
+  await trainModel(model2, inputs, labels);
 
   var tf_data_test = { x: test_x, y: test_y }
   const tensorData_test = convertToTensor(tf_data_test);
@@ -523,6 +539,10 @@ Home.getInitialProps = async ({ req }) => {
   var prediction_array = Object.values(predictedPoints[0])
   var prediction_array = new Array(divide_line).fill(null).concat(prediction_array);
 
+  var predictedPoints2 = await testModel(model2, tensorData_test)
+  var loss2 = Object.values(predictedPoints2[1])
+  var prediction_array2 = Object.values(predictedPoints2[0])
+  var prediction_array2 = new Array(divide_line).fill(null).concat(prediction_array2);
   // TIME SERIES ANALYSIS
   // const period = 30
   // const t = new timeseries.main(timeseries.adapter.fromArray(Object.values(testing_graph)));
@@ -555,7 +575,7 @@ Home.getInitialProps = async ({ req }) => {
         data: Object.values(testing_graph)
       },
       {
-        label: rand[0] + " Prediction",
+        label: rand[0] + " Prediction MAE",
         fill: false,
         lineTension: 0.1,
         backgroundColor: 'rgba(192,75,75,0.4)',
@@ -574,6 +594,27 @@ Home.getInitialProps = async ({ req }) => {
         pointRadius: 1,
         pointHitRadius: 10,
         data: prediction_array
+      },
+      {
+        label: rand[0] + " Prediction MSE",
+        fill: false,
+        lineTension: 0.1,
+        backgroundColor: 'rgba(75,192,75,0.4)',
+        borderColor: 'rgba(75,192,75,1)',
+        borderCapStyle: 'butt',
+        borderDash: [],
+        borderDashOffset: 0.0,
+        borderJoinStyle: 'miter',
+        pointBorderColor: 'rgba(75,192,75,1)',
+        pointBackgroundColor: '#fff',
+        pointBorderWidth: 1,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: 'rgba(75,192,75,1)',
+        pointHoverBorderColor: 'rgba(220,220,220,1)',
+        pointHoverBorderWidth: 2,
+        pointRadius: 1,
+        pointHitRadius: 10,
+        data: prediction_array2
       },
       // {
       //   label: rand[0] + ' MA',
@@ -622,7 +663,8 @@ Home.getInitialProps = async ({ req }) => {
     related_data: related_data,
     related_keywords: related_keywords,
     related_keyword_graphs: related_keyword_graphs,
-    loss1: loss1
+    loss1: loss1,
+    loss2: loss2
   };
 
 };
